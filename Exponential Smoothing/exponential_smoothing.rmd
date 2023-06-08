@@ -1,0 +1,269 @@
+############################
+##                        ##
+## Forecasting: Chapter 4 ##
+##                        ##
+############################
+
+rm(list=ls())   #Clean workspace
+getwd()         #Get current working directory
+setwd("C:/Users/jajha/Dropbox (Davidson College)/Teaching/1_Davidson College/ECO385_S23/R") #Set working directory
+
+#install.packages(c("tidyverse", "zoo", "ggplot2", "qcc"))   #Install necessary packages
+library(ggplot2)
+library(tidyverse)  #Load packages: tidyverse
+library(zoo)        #Load packages: zoo
+library(stats)
+
+#--------------------------------------------
+# Defining the first-order exponential smoothing function
+#--------------------------------------------
+firstsmooth <- function(y, lambda, start=y[1]){
+  ytilde <- y
+  ytilde[1] <- lambda*y[1] + (1-lambda)*start
+  for (i in 2:length(y)){
+    ytilde[i] <- lambda*y[i] + (1-lambda)*ytilde[i-1]
+  }
+  ytilde
+}
+
+#--------------------------------------------
+#For the first-order exponential smoothing, measures of accuracy such as
+#MAPE, MAD, and MSD can be obtained from the following function:
+#--------------------------------------------
+measacc.fs <- function(y,lambda){
+  out <- firstsmooth(y,lambda)
+  T <- length(y)
+  #Smoothed version of the original is the one step ahead prediction
+  #Hence the predictions (forecasts) are given as
+  pred <- c(y[1],out[1:(T-1)])
+  prederr <- y-pred
+  SSE <- sum(prederr^2)
+  MAPE <- 100*sum(abs(prederr/y))/T
+  MAD <- sum(abs(prederr))/T
+  MSD <- sum(prederr^2)/T
+  ret1 <- c(SSE,MAPE,MAD,MSD)
+  names(ret1) <- c("SSE","MAPE","MAD","MSD")
+  return(ret1)
+  return(prederr)
+}
+
+#---------------------------------------------
+# Example 4.1: Simple Exponential Smoothing
+#---------------------------------------------
+dji.data <- read_csv("DowJones.csv")
+names(dji.data) <- c("date", "index")
+
+(dji.smooth1 <- firstsmooth(y=dji.data$index, lambda=0.4))
+plot(dji.data$index,type="p", pch=16,cex=.5,xlab='Date',ylab='Dow Jones',xaxt='n')
+axis(1, seq(1,85,12), dji.data$date[seq(1,85,12)])
+lines(dji.smooth1)
+measacc.fs(dji.data$index,0.4)
+
+#Alternatively, use the Holt-Winters function
+#See https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/HoltWinters
+#Also see p.256 for details of the parameter values
+dji1.fit <- HoltWinters(dji.data$index, alpha=0.4, beta=FALSE, gamma=FALSE)
+
+#---------------------------------------------
+# Example 4.2: Double Exponential Smoothing
+#---------------------------------------------
+cpi.data <- read_csv("US_CPI.csv")
+names(cpi.data) <- c("date", "index")
+
+cpi.smooth1 <- firstsmooth(y=cpi.data$index, lambda=0.3)
+cpi.smooth2 <- firstsmooth(y=cpi.smooth1, lambda=0.3)
+cpi.hat <- 2*cpi.smooth1 - cpi.smooth2 #Predicted value of y
+plot(cpi.data$index, type="p", pch=16,cex=.5, xlab='Date', ylab='CPI', xaxt='n')
+axis(1, seq(1,120,24), cpi.data$date[seq(1,120,24)])
+lines(cpi.hat)
+
+#Alternatively, use the Holt-Winters function:
+#See https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/HoltWinters
+#Also see p.256 for details of the parameter values
+HoltWinters(cpi.data$index, alpha=0.3, beta=0.3, gamma=FALSE)
+
+#---------------------------------------------
+# Example 4.3: Double Exponential Smoothing
+#---------------------------------------------
+dji.data <- read_csv("DowJones.csv")
+names(dji.data) <- c("date", "index")
+
+dji.smooth1 <- firstsmooth(y=dji.data$index, lambda=0.3)
+dji.smooth2 <- firstsmooth(y=dji.smooth1, lambda=0.3)
+dji.hat <- 2*dji.smooth1 - dji.smooth2 #Predicted value of y
+plot(dji.data$index, type="p", pch=16, cex=.5, xlab='Date', ylab='Dow Jones', xaxt='n')
+axis(1, seq(1,85,12), dji.data$date[seq(1,85,12)])
+lines(dji.hat)
+
+#---------------------------------------------
+# Example 4.4: Forecasting a Constant Process
+#---------------------------------------------
+speed.data <- read_csv("Speed.csv")
+names(speed.data) <- c("week", "speed")
+
+lambda.vec <- seq(0.1, 0.9, 0.1) #Sequence of lambda values from 0.1 to 0.9 in increments of 0.1
+sse.speed <- function(sc){measacc.fs(speed.data$speed[1:78], sc)[1]} #Apply "firstSmooth"
+sse.vec <- sapply(lambda.vec, sse.speed) #SAPPLY instead of "for" loops for computational purpose
+opt.lambda <- lambda.vec[sse.vec == min(sse.vec)] #Optimal lambda that minimizes SSE
+plot(lambda.vec, sse.vec, type="b", main = "SSE vs. lambda\n", xlab='lambda\n', ylab='SSE')
+abline(v=opt.lambda, col = 'red')
+mtext(text = paste("SSE min = ", round(min(sse.vec),2), "\n lambda= ", opt.lambda)) #Main text on graph
+
+#Alternatively, use the Holt Winters function without specifying alpha parameter to get "best" value of smoothing constant.
+HoltWinters(speed.data$speed, beta=FALSE, gamma=FALSE)
+
+#---------------------------------------------
+# Example 4.5: Forecasting a Linear Trend Process
+#---------------------------------------------
+# Finding the value of the smoothing constant that minimizes SSE using First-order exponential smoothing
+lambda.vec <- c(seq(0.1, 0.9, 0.1), .95, .99)
+sse.cpi <- function(sc){measacc.fs(cpi.data$index[1:108],sc)[1]}
+sse.vec <- sapply(lambda.vec, sse.cpi)
+opt.lambda <- lambda.vec[sse.vec == min(sse.vec)]
+plot(lambda.vec, sse.vec, type="b", main = "SSE vs. lambda\n", xlab='lambda\n', ylab='SSE', pch=16, cex=.5)
+acf(cpi.data$index[1:108],lag.max=25) #ACF of the data
+
+#Now, we forecast using a Second-order exponential smoother with lambda=0.3
+
+#---------------
+# Option A: 1- to 12-step ahead forecasts
+lcpi <- 0.3
+cpi.smooth1 <- firstsmooth(y=cpi.data$index[1:108],lambda=lcpi)
+cpi.smooth2 <- firstsmooth(y=cpi.smooth1, lambda=lcpi)
+cpi.hat <- 2*cpi.smooth1 - cpi.smooth2
+tau <- 1:12
+T <- length(cpi.smooth1)
+cpi.forecast <- (2 + tau*(lcpi/(1 - lcpi)))*cpi.smooth1[T] - (1+tau*(lcpi/(1-lcpi)))*cpi.smooth2[T]
+ctau <- sqrt(1 + (lcpi/((2-lcpi)^3))*(10-14*lcpi+5*(lcpi^2)+2*tau*lcpi*(4-3*lcpi)+2*(tau^2)*(lcpi^2)))
+alpha.lev <- 0.05
+sig.est <- sqrt(var(cpi.data$index[2:108] - cpi.hat[1:107]))
+cl <- qnorm(1-alpha.lev/2)*(ctau/ctau[1])*sig.est
+plot(cpi.data$index[1:108], type="p", pch=16, cex=.5, xlab='Date', ylab='CPI', xaxt='n', xlim=c(1,120), ylim=c(150,192))
+axis(1, seq(1,120,24), cpi.data$date[seq(1,120,24)])
+points(109:120, cpi.data$index[109:120])
+lines(109:120, cpi.forecast)
+lines(109:120, cpi.forecast+cl)
+lines(109:120, cpi.forecast-cl)
+
+#---------------
+# Option B: 12 one-step-ahead forecasts
+lcpi <- 0.3
+T <- 108
+tau <- 12
+alpha.lev <- 0.05
+cpi.forecast <- rep(0,tau)
+cl <- rep(0,tau)
+cpi.smooth1 <- rep(0,T+tau)
+cpi.smooth2 <- rep(0,T+tau)
+for (i in 1:tau) {
+  cpi.smooth1[1:(T+i-1)] <- firstsmooth(y=cpi.data$index[1:(T+i-1)], lambda=lcpi)
+  cpi.smooth2[1:(T+i-1)] <- firstsmooth(y=cpi.smooth1[1:(T+i-1)], lambda=lcpi)
+  cpi.forecast[i] <- (2+(lcpi/(1-lcpi)))*cpi.smooth1[T+i-1]- (1+(lcpi/(1-lcpi)))*cpi.smooth2[T+i-1]
+  cpi.hat <- 2*cpi.smooth1[1:(T+i-1)] - cpi.smooth2[1:(T+i-1)]
+  sig.est <- sqrt(var(cpi.data[2:(T+i-1),2]- cpi.hat[1:(T+i-2)]))
+  cl[i] <- qnorm(1-alpha.lev/2)*sig.est
+}
+plot(cpi.data$index[1:T], type="p", pch=16, cex=.5, xlab='Date', ylab='CPI', xaxt='n', xlim=c(1,T+tau), ylim=c(150,192))
+axis(1, seq(1,T+tau,24), cpi.data$date[seq(1,T+tau,24)])
+points((T+1):(T+tau), cpi.data$index[(T+1):(T+tau)],cex=.5)
+lines((T+1):(T+tau),cpi.forecast)
+lines((T+1):(T+tau),cpi.forecast+cl)
+lines((T+1):(T+tau),cpi.forecast-cl)
+
+#---------------------------------------------
+# Example 4.6: Adaptive updating of the discount factor, lambda
+#---------------------------------------------
+
+#First, we define the Trigg-Leach Updating function:
+tlsmooth<-function(y, gamma, y.tilde.start=y[1], lambda.start=1){
+  T <- length(y)
+  
+  #Initialize the vectors
+  Qt <- vector()
+  Dt <- vector()
+  y.tilde <- vector()
+  lambda <- vector()
+  err <- vector()
+  
+  #Set the starting values for the vectors
+  lambda[1] = lambda.start
+  y.tilde[1] = y.tilde.start
+  Qt[1] <- 0
+  Dt[1] <- 0
+  err[1] <- 0
+  
+  for (i in 2:T){
+    err[i] <- y[i] - y.tilde[i-1]
+    Qt[i] <- gamma*err[i] + (1-gamma)*Qt[i-1]
+    Dt[i] <- gamma*abs(err[i]) + (1-gamma)*Dt[i-1]
+    lambda[i] <- abs(Qt[i]/Dt[i])
+    y.tilde[i] = lambda[i]*y[i] + (1-lambda[i])*y.tilde[i-1]
+  }
+  return(cbind(y.tilde, lambda, err, Qt, Dt))
+}
+
+#Obtain the exponential smoother for Dow Jones Index
+dji.smooth1 <- firstsmooth(y=dji.data$index, lambda=0.4)
+
+#Now, we apply the Trigg-Leach Smoothing function to the Dow Jones Index:
+out.tl.dji <- tlsmooth(dji.data$index, 0.3)
+
+#Plot the data together with TL and exponential smoother for comparison
+plot(dji.data$index, type="p", pch=16, cex=.5, xlab='Date', ylab='Dow Jones', xaxt='n')
+axis(1, seq(1,85,12), cpi.data$date[seq(1,85,12)])
+lines(out.tl.dji[,1])
+lines(dji.smooth1, col="grey40")
+legend(60,8500, c("Dow Jones", "TL Smoother", "Exponential Smoother"),
+       pch=c(16, NA, NA),lwd=c(NA, 0.5, 0.5), cex=0.55, col=c("black", "black", "grey40"))
+
+#---------------------------------------------
+# Example 4.7: Exponential Smoothing for ADDITIVE Seasonal Model
+#---------------------------------------------
+closales.data <- read_csv("ClothingSales.csv")
+names(closales.data) <- c("date", "sales")
+
+dat.ts = ts(closales.data[,2], start = c(1992,1), freq = 12)
+y1 <- closales.data[1:132,]
+
+# convert data to ts object
+y1.ts <- ts(y1[,2], start = c(1992,1), freq = 12)
+clo.hw1 <- HoltWinters(y1.ts, alpha=0.2, beta=0.2, gamma=0.2, seasonal="additive")
+plot(y1.ts, type="p", pch=16, cex=.5, xlab='Date', ylab='Sales')
+lines(clo.hw1$fitted[,1])
+
+#Forecast the the sales for 2003
+y2 <- closales.data[133:144,]
+y2.ts <- ts(y2[,2], start=c(2003,1), freq=12)
+y2.forecast <- predict(clo.hw1, n.ahead=12, prediction.interval=TRUE)
+plot(y1.ts, type="p", pch=16, cex=.5, xlab='Date', ylab='Sales', xlim=c(1992,2004))
+points(y2.ts)
+lines(y2.forecast[,1])
+lines(y2.forecast[,2])
+lines(y2.forecast[,3])
+
+#---------------------------------------------
+# Example 4.8: Exponential Smoothing for MULTIPLICATIVE Seasonal Model
+#---------------------------------------------
+liqsales.data <- read_csv("LiquorSales.csv")
+names(closales.data) <- c("date", "sales")
+
+y.ts <- ts(liqsales.data[,2], start = c(1992,1), freq = 12)
+liq.hw.add <- HoltWinters(y.ts, alpha=0.2, beta=0.2, gamma=0.2, seasonal="additive")
+plot(y.ts, type="p", pch=16, cex=.5, xlab='Date', ylab='Sales', main="Additive Model")
+lines(liq.hw.add$fitted[,1])
+
+liq.hw.mult<-HoltWinters(y.ts, alpha=0.2, beta=0.2, gamma=0.2, seasonal="multiplicative")
+plot(y.ts, type="p", pch=16, cex=0.5, xlab='Date', ylab='Sales', main="Multiplicative Model")
+lines(liq.hw.mult$fitted[,1])
+
+y1 <- liqsales.data[1:144,]
+y1.ts <- ts(y1[,2], start = c(1992,1), freq = 12)
+liq.hw1 <- HoltWinters(y1.ts, alpha=0.2, beta=0.2, gamma=0.2, seasonal="multiplicative")
+y2 <- liqsales.data[145:156,]
+y2.ts <- ts(y2[,2], start=c(2004,1), freq=12)
+y2.forecast <- predict(liq.hw1, n.ahead=12, prediction.interval = TRUE)
+plot(y1.ts, type="p", pch=16, cex=0.5, xlab='Date', ylab='Sales', xlim=c(1992,2005))
+points(y2.ts)
+lines(y2.forecast[,1])
+lines(y2.forecast[,2])
+lines(y2.forecast[,3])

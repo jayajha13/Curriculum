@@ -1,0 +1,179 @@
+############################
+##                        ##
+## Forecasting: Chapter 6 ##
+##                        ##
+############################
+
+rm(list=ls())   #Clean workspace
+getwd()         #Get current working directory
+setwd("C:/Users/jajha/Dropbox (Davidson College)/Teaching/1_Davidson College/ECO385_S23/R") #Set working directory
+
+#install.packages(c("tidyverse", "zoo", "ggplot2", "qcc", "forecast"))   #Install necessary packages
+library(ggplot2)
+library(tidyverse)  #Load packages: tidyverse
+library(zoo)        #Load packages: zoo
+library(stats)
+library(forecast)
+
+#---------------------------------------------------------------------------
+# Example 6.5: Intervention Model for Weekly Cereal Sales Data
+#---------------------------------------------------------------------------
+cereal <- read_csv("CerealSales.csv")
+names(cereal) <- c("week", "sales")
+
+plot(cereal$sales, type="o", pch=16, cex=0.5, xlab='Week', ylab='Sales')
+abline(v=88)
+mtext("Week 88", side=3, at=88)
+
+#Identify the ARIMA model for the pre-intervention data
+par(mfrow=c(1,2),oma=c(0,0,0,0))
+acf(cereal$sales[1:87], lag.max=25, type="correlation", main="ACF for Sales \nWeeks 1-87")
+acf(cereal$sales[1:87], lag.max=25, type="partial",     main="PACF for Sales \nWeeks 1-87", ylab="PACF")
+
+par(mfrow=c(1,2),oma=c(0,0,0,0))
+acf(diff(cereal$sales[1:87],1), lag.max=25, type="correlation", main="ACF for First Differences \nWeeks 1-87")
+acf(diff(cereal$sales[1:87],1), lag.max=25, type="partial",     main="PACF for First Differences \nWeeks 1-87", ylab="PACF")
+
+#Define the step indicator variable
+#install.packages("TSA")
+library(TSA)
+T <- length(cereal$sales)
+St <- c(rep(0,87), rep(1,(T-87)))
+
+#Fit an ARIMA(0,0,1) model for first differences
+sales.tf <- arimax(diff(cereal$sales), order=c(0,0,1), xtransf= St[2:T],
+                 transfer=list(c(0,0)), include.mean = FALSE)
+sales.tf
+
+#---------------------------------------------------------------------------
+# Example 6.2: Transfer Function Noise Model for Chemical Process Viscosity
+#---------------------------------------------------------------------------
+vistemp.data <- read_csv("ChemicalViscosity.csv")
+names(vistemp.data) <- c("temp", "viscosity")
+
+xt <- vistemp.data$temp
+yt <- vistemp.data$viscosity
+par(mfrow=c(2,1), oma=c(0,0,0,0))
+plot(xt, type="o", pch=16, cex=.5, xlab='Time', ylab=expression (italic(x[italic(t)])))
+plot(yt, type="o", pch=16, cex=.5, xlab='Time', ylab=expression (italic(y[italic(t)])))
+
+#-------------------
+#Step 1: Prewhitening
+#Model identification for xt
+
+par(mfrow=c(1,2), oma=c(0,0,0,0))
+acf(xt, lag.max=25, type="correlation", main="ACF for Temperature")
+acf(xt, lag.max=25, type="partial",     main="PACF for Temperature", ylab="PACF")
+
+#Fit an AR(1) model to xt.
+xt.ar1 <- arima(xt, order=c(1, 0, 0), include.mean=FALSE)
+xt.ar1
+
+#Residual analysis
+res.xt.ar1 <- as.vector(residuals(xt.ar1))
+fit.xt.ar1<-as.vector(fitted(xt.ar1))
+par(mfrow=c(1,2),oma=c(0,0,0,0))
+acf(res.xt.ar1, lag.max=25, type="correlation", main="ACF of the Residuals for x(t)")
+acf(res.xt.ar1, lag.max=25, type="partial",     main="PACF of the Residuals for x(t)")
+
+# Residual Diagnostics
+par(mfrow=c(2,2),oma=c(0,0,0,0))
+qqnorm(res.xt.ar1, datax=TRUE, pch=16, xlab='Residual', main="")
+qqline(res.xt.ar1, datax=TRUE)
+plot(fit.xt.ar1, res.xt.ar1, pch=16, xlab='Fitted Value', ylab='Residual')
+abline(h=0)
+hist(res.xt.ar1, col="gray", xlab='Residual', main="")
+plot(res.xt.ar1, type="l",   xlab='Observation Order', ylab='Residual')
+points(res.xt.ar1,pch=16,cex=.5)
+abline(h=0)
+
+#VERY IMPORTANT STEP: Prewhitening both series using AR(1) coefficients of 0.73.
+T <- length(xt)
+alphat <- xt[2:T] - 0.73*xt[1:(T-1)]
+betat  <- yt[2:T] - 0.73*yt[1:(T-1)]
+
+par(mfrow=c(1,1),oma=c(0,0,0,0))
+ralbe  <- ccf(betat, alphat, main='CCF of alpha(t) and beta(t)', ylab='CCF')
+abline(v=0, col='blue')
+
+#Obtain the estimates of vt
+par(mfrow=c(1,1), oma=c(0,0,0,0))
+vhat <- sqrt(var(betat)/var(alphat))*ralbe$acf
+nl   <- length(vhat)
+plot(seq(-(nl-1)/2, (nl-1)/2,1), vhat, type='h', xlab='Lag', ylab=expression(italic(hat(v)[italic(j)])), main="Impulse Response")
+abline(v=0, col='blue')
+abline(h=0)
+
+#Model the noise using the estimates given in the example
+Nhat <- array(0,dim=c(1,T))
+for (i in 4:T){
+  Nhat[i] <- yt[i] + 0.31*(Nhat[i-1]-yt[i-1]) + 0.48*(Nhat[i-2]-yt[i-2]) + 1.21*xt[i-3]
+  }
+Nhat<-Nhat[4:T]
+plot(Nhat, type="o", pch=16, cex=0.5, xlab='Time', ylab=expression(italic(hat(N)[italic(t)])))
+par(mfrow=c(1,2),oma=c(0,0,0,0))
+acf(Nhat, lag.max=25, type="correlation", main="ACF of Nhat")
+acf(Nhat, lag.max=25, type="partial",     main="PACF of Nhat")
+
+#Fit AR(1) and AR(3) models for Nhat
+Nhat.ar1 <- arima(Nhat, order=c(1, 0, 0), include.mean=FALSE)
+Nhat.ar3 <- arima(Nhat, order=c(3, 0, 0), include.mean=FALSE)
+res.Nhat.ar1 <- as.vector(residuals(Nhat.ar1))
+
+library(forecast)
+fit.Nhat.ar1 <- as.vector(fitted(Nhat.ar1))
+# ACF and PACF of the Residuals
+par(mfrow=c(1,2),oma=c(0,0,0,0))
+acf(res.Nhat.ar1, lag.max=25, type="correlation", main="ACF of the Residuals for Nhat")
+acf(res.Nhat.ar1, lag.max=25, type="partial",     main="PACF of the Residuals for Nhat")
+
+# 4-in-1 plot of the residuals
+par(mfrow=c(2,2),oma=c(0,0,0,0))
+qqnorm(res.Nhat.ar1, datax=TRUE, pch=16, xlab='Residual', main="")
+qqline(res.Nhat.ar1, datax=TRUE)
+plot(Nhat, res.Nhat.ar1, pch=16, xlab='Fitted Value', ylab='Residual')
+abline(h=0)
+hist(res.Nhat.ar1, col="gray", xlab='Residual', main="")
+plot(res.Nhat.ar1, type="l", xlab='Observation Order', ylab='Residual')
+points(res.Nhat.ar1, pch=16, cex=.5)
+abline(h=0)
+
+#Step 4: Fitting the transfer-function noise model
+#install.packages("TSA")
+library(TSA)
+ts.xt  <- ts(xt)
+lag3.x <- lag(ts.xt, -3)
+ts.yt  <- ts(yt)
+dat3   <- cbind(ts.xt,lag3.x,ts.yt)
+dimnames(dat3)[[2]] <- c("xt","lag3x","yt")
+data2 <- na.omit(as.data.frame(dat3))
+#Input arguments
+#order: determines the model for the error component, i.e. the order of the ARIMA model for y(t) if there were no x(t)
+#xtransf: x(t)
+#transfer: the orders (r and s) of the transfer function
+visc.tf<-arimax(data2$yt, order=c(1,0,0), xtransf=data.frame(data2$lag3x), transfer=list(c(2,0)), include.mean = FALSE)
+visc.tf
+
+res.visc.tf<-as.vector(residuals(visc.tf))
+library(forecast)
+fit.visc.tf <-as.vector(fitted(visc.tf))
+# ACF and PACF of the Residuals
+par(mfrow=c(1,2),oma=c(0,0,0,0))
+acf(res.visc.tf,lag.max=25,type="correlation",main="ACF of the Residuals \nfor TF-N Model")
+acf(res.visc.tf, lag.max=25,type="partial",main="PACF of the Residuals \nfor TF-N Model")
+
+par(mfrow=c(2,2),oma=c(0,0,0,0))
+qqnorm(res.visc.tf,datax=TRUE,pch=16,xlab='Residual',main="")
+qqline(res.visc.tf,datax=TRUE)
+plot(fit.visc.tf,res.visc.tf,pch=16, xlab='Fitted Value', ylab='Residual')
+abline(h=0)
+hist(res.visc.tf,col="gray",xlab='Residual',main="")
+plot(res.visc.tf,type="l",xlab='Observation Order',ylab='Residual')
+points(res.visc.tf,pch=16,cex=.5)
+abline(h=0)
+
+par(mfrow=c(1,1),oma=c(0,0,0,0))
+T<-length(res.visc.tf)
+Ta<-length(alphat)
+ccf(res.visc.tf,alphat[(Ta-T+1):Ta],main='CCF of alpha(t) and \nResiduals of TF-N Model',ylab='CCF')
+abline(v=0,col='blue')

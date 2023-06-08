@@ -1,0 +1,289 @@
+---
+title: "R Studio Lesson 1"
+author: "Trent Turbyfill"
+date: "7/29/2020"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# R Studio Lesson 1
+
+Hello, this is lesson 1 on R programming. I will assume you have never opened R or any other programing language.
+
+Before we do any code, we should get familiar with the layout of R Studio.
+
+##R Studio is broken up into 4 basic quadrants.
+1. Where you type code and where you are reading this right now
+2. The Environment, History and Connections:
+   Environment shows you data, values, and functions youve inputted or downloaded.
+   The broom icon clears the environment
+   History shows past commands (I will explain what a command is later)
+   Connections is to create and view external data sources
+3. Console and Terminal:
+   Console shows your output from quadrant 1 or from typing directly into the console
+   itself.
+   Terminal just accesses the Terminal on your computer (not super important for our
+   purposes right now).
+ 4. Files, Plots, Packages and Help
+   Files accesses and import the files in your computer into R
+   Plots shows graphs and images that you create in R
+   Packages shows all your downloaded and called packages (I will explain what a package
+   is later).
+   Help is a useful tool for looking up commands and whatnot if you forget what they do
+
+Now that you understand the layout, you are ready to start coding in R! (Notice the hastag at the beginning of each line. The hastag means that the line is a comment and will not be looked at when you run your code.Comments are helpful to make notes about your code to help you and others understand it later. Make sure to use them intermittently!)
+
+You can highlight entire area of text and press command + shift + c to comment an entire area of text quickly (on mac)
+
+The first thing you will do at the beginning of all your R scripts is download and call packages.
+
+A package is something you can download and that adds commands and tools that help you manipulate your data in certian ways.
+
+##How to download and add packages:
+Step 1: Download
+Step 2: Add
+
+```{r}
+#install.packages('tidyverse')
+library(tidyverse)
+```
+
+You can run the entire script by pressing the run bottom on the top right of the scriptwindow (Quadrant 1). To run only a selected amount of code,highlight the code with your mouse and hit run. After running it, you should see that tidyverse attatched a few packages, displayed in the console section.You only have to install a package once so in future projects you can skip step 1. (Command + enter is the short cut for running a highlighted line.
+
+Before importing data, it is a good idea to look at your working directory.The working directory is where R can view and access files. Run the line below to view it
+
+```{r}
+getwd()
+```
+
+##Setting up a working directory:
+I find the easier way is to use the files tab in Quadrant 4. Click through until you find the group of files you'd like to access. Then click more and set as working directory.
+
+Something like this below should show up in the Console section:
+
+```{r}
+setwd("C:/Users/jajha/Dropbox (Davidson College)/Teaching/1_Davidson College/ECO385_S21/LessonPlans")
+```
+
+The command below shows you the files avalible in your directory:
+```{r}
+dir()
+```
+
+The next step will typically involve importing a data set or some type of external
+information. Today, we will use the premade dataset titled Beverage.csv. Make sure you
+have it downloaded onto your computer before proceeding!
+
+##How to import a Data Set:
+Step 1: Under the Enviroment tab, click on Import Dataset
+Step 2: Chose the apporiate location to find the Dataset (for todays purposes choose
+From Text(base))
+Step 3: locate your the Beverage.csv file and open it.
+
+Now you should see the file in another tab next to this one, and in the Enviroment tab.You can operate in the terminal of that tab to preform basic functions but for our purposes today copy and paste the given pathway command into this script. Mine looks like this, however you cannot simply uncomment mine since the pathway on your computer is most likely different than mine. So, only refer to it as a reference! Do not forget to run the line after you copy and paste it!
+
+Mine looks like this:
+```{r}
+Beverage <- read.csv("C:/Users/jajha/Dropbox (Davidson College)/Teaching/1_Davidson College/ECO385_S21/R/Beverage.csv")
+```
+
+Before we proceed I will explain what this line means since it involves the process of concatenation which is a very important skill.
+
+##What is concatenation?
+Concatenation assigns a value or dataset to a name that can be referred to later
+This is helpful in problem solving and data manipulation
+The process is simple, consisting of three parts
+varible/dataset name + <- + what is being attached
+Run these lines below to help understand how it works
+```{r}
+Apple <- 5
+Bannana <- 7
+Bannana + Apple
+```
+The values will show up in the Enviroment section under Values. You should also see that the answer (12) showed up in the Console section
+
+Matrix Multiplication
+Matrix Mulitplication is super easy in R. Everything is relavtively self-explanatory
+
+Example:
+matrix(c(1,5,3,8), ncol=2, nrow=2)
+The matrix will appear in the Console section
+Now set them both to a varible to make manipulation easier
+```{r}
+a <- matrix(c(1,5,3,8), ncol=2, nrow=2)
+b <- matrix(c(3,7,8,9), ncol=2, nrow=2)
+a * b
+a %*% b
+```
+The * command multiplies the matrix element by element
+The %*% command performs a matrix multiplication between the two matrices
+
+Ok, back to the data. As you may have predicted fter the read.csv is the pathway to the file we selected. Since that is difficult to create on own, especially for beginners, I like to use the method previously descibed.
+
+Now, lets call the data. We do this by simply typing the name we assigned to
+it and running it.
+
+For example: Mine is called Beverage so
+```{r}
+Beverage
+```
+If you named yours Beverage, you can simply run the line  above, if not type it
+yourself. All the data should appear in the Console section.
+
+Try these out as well:
+```{r}
+summary(Beverage)
+
+Beverage %>%
+  summary()
+```
+
+As you can see these two options gave a brief summary of the data. The second way that we tried is a feature given to us by the tidyvese package that we installed previously. The process is called piping and its utility will be come more apparent as the class goes on. The short cut for the pipe symbol is command + shift + m
+
+##Here is a potential use of piping:
+Suppose you have a lot of NAs in your data and you want to have a summary without them.
+You can preform this action:
+
+```{r}
+Beverage %>%
+  drop_na() %>%
+  summary()
+```
+Since there were no NA values, nothing changed but you can see the utility. Using multiple pipes is called concatenating pipes.
+
+Now, Lets try some filtering with dpylr. Luckily for us, dpylr is part of tidyverse so we
+do not have to add any other packages! For this one lets use the data from CerealSales.csv
+
+Go through this one on your own and copy and paste it in here after. Mine looks like:
+
+```{r}
+CerealSales <- read.csv("C:/Users/jajha/Dropbox (Davidson College)/Teaching/1_Davidson College/ECO385_S21/R/CerealSales.csv")
+```
+
+Now try this:
+```{r}
+CerealSales %>% 
+   filter(Sales > 150000)
+```
+As you can see only the Sales greater than 150000 showed up. Neat, right? If you want to find something equal to a value, use ==
+
+Another fun tool is arrange:
+```{r}
+CerealSales %>%
+  arrange(desc(Sales))
+```
+This shows aranges the data frame in a desending order according to Sales
+
+The mutate function allows you to use your existing data to create a new column.
+Here is an example:
+```{r}
+CerealSales %>% 
+  mutate(Revenue = Sales * 4)
+```
+As you can see this added a column under the title provided that is 4 times as large as Sales. You can also add/subtract/multiple/divide columns to each other. You can also mutate existing columns!
+
+Now lets create a new data frame based off of an existing one. Suppose you wanted a dataframe that says if the sales week was good or bad and good means at least 180000 sales.
+```{r}
+CerealSales_New <- CerealSales %>% 
+  mutate(Sales = ifelse(Sales >= 180000, "Good", "Bad"))
+
+CerealSales_New
+```
+We used the ifelse function that reads: if sales is greator or equal to 180000 print Good, else print Bad.
+
+Simple graphs: Use the plot function
+plot(x$category, y$category)
+Example:
+
+```{r}
+plot(CerealSales$Week, CerealSales$Sales)
+```
+
+Works similairy with histograms with breaks controling how many bars
+
+```{r}
+hist(CerealSales$Sales, breaks = 10)
+```
+
+other functions include barplot(), pairs(), and boxplot()
+now for some customization:
+
+```{r}
+plot(CerealSales$Week, CerealSales$Sales,
+     xlab = "Week",
+     ylab = "Number of Sales",
+     main = "Cereal Data",
+     type = "o",
+     col = "red",
+     col.main = "darkgray",
+     cex.axis = 1.1,
+     lty = 6,
+     pch = 2)
+```
+
+After running this line, the first three should be self-explanitory
+type = o creates a line and points while type = l only makes the line
+col is the color of the line
+col.main is the color of the heading
+cex.axis is the multiplier of the font size of x and y axis
+lty is the type of line connecting the points (ranges from 1-6)
+pch is the type of point (ranges from 1-35!)
+
+The par() function is helpful to set parameters in general par(col = "red") will set each subsequent graphes line to red
+
+##Now lets learn how to make some graphs with ggplot2
+How it works:
+You need to input your data, axes, and type of graph.
+```{r}
+ggplot(CerealSales, aes(x=Week, y=Sales)) +
+   geom_point()
+```
+geom_bar is a bargraph and geom_point is a scatterplot. The aes means aesthetic.
+
+Now lets add some color. First need to add colomn to distinsh.
+```{r}
+CerealSales_Color <- CerealSales %>% 
+   mutate(Good_Week = Sales > 180000)
+```
+
+This made a separate column for successful weeks
+
+```{r}
+ggplot(CerealSales_Color, aes(x = Week, y = Sales, color = Good_Week)) +
+         geom_point()
+```
+This plots the same graph but highlights the successful weeks.
+
+And Finally, I will show you some helpful tools when summarizing your data
+```{r}
+CerealSales %>%
+  summarise(Mean_Sales = mean(Sales))
+
+```
+This shows the mean amount of Sales. This also works with median, mode and other basic functions. Since we are using pipes we can concatenate.
+```{r}
+CerealSales %>%
+  filter(Week > 50) %>%
+  summarise(Mean_Sales = mean(Sales))
+```
+This obviously filters the by weeks over 50 then finds the mean
+Now, Say we wanted to compare weeks 1-50 to weeks 50-100:
+
+```{r}
+CerealSales %>%
+  filter(Week <=100) %>%
+  group_by(Week < 50) %>%
+  summarise(Mean_Sales = mean(Sales))
+```
+The group_by feature split the data by that specification. You can also group_by a different variable. Lets refer to CerealSales_Color to illustrate this
+```{r}
+CerealSales_Color %>%
+  filter(Week <=100) %>%
+  group_by(Good_Week) %>%
+  summarise(Mean_Sales = mean(Sales))
+```
+
+That is it for the first lesson. Thank you everyone!
